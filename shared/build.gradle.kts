@@ -32,6 +32,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.ktor.client.android)
             implementation(libs.koin.android)
+            implementation(libs.androidx.datastore.preferences)
         }
     }
 }

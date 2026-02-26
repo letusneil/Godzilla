@@ -17,7 +17,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.letusneil.godzilla.ui.theme.LocalThemeConfig
 import com.letusneil.godzilla.ui.theme.LocalThemeController
-import com.letusneil.godzilla.ui.theme.ThemeMode
+import com.letusneil.godzilla.theme.ThemeMode
 
 const val PROFILE_ROUTE = "profile"
 

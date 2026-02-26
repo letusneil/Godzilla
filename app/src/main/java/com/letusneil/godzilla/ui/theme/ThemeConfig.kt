@@ -1,12 +1,7 @@
 package com.letusneil.godzilla.ui.theme
 
 import androidx.compose.runtime.compositionLocalOf
-
-enum class ThemeMode {
-    SYSTEM,
-    LIGHT,
-    DARK,
-}
+import com.letusneil.godzilla.theme.ThemeMode
 
 data class ThemeConfig(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,

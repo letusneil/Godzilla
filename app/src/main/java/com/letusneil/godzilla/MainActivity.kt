@@ -14,11 +14,8 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -30,8 +27,9 @@ import com.letusneil.godzilla.ui.theme.GodzillaTheme
 import com.letusneil.godzilla.ui.theme.LocalThemeConfig
 import com.letusneil.godzilla.ui.theme.LocalThemeController
 import com.letusneil.godzilla.ui.theme.ThemeConfig
-import com.letusneil.godzilla.ui.theme.ThemeMode
 import com.letusneil.godzilla.ui.workout.WORKOUT_ROUTE
+import com.letusneil.godzilla.theme.ThemeViewModel
+import org.koin.androidx.compose.koinViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,16 +41,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@PreviewScreenSizes
 @Composable
-fun GodzillaApp() {
-    var themeMode by rememberSaveable { mutableStateOf(ThemeMode.SYSTEM) }
+fun GodzillaApp(themeViewModel: ThemeViewModel = koinViewModel()) {
+    val themeMode by themeViewModel.themeMode.collectAsStateWithLifecycle()
     val themeConfig = ThemeConfig(themeMode = themeMode)
 
     GodzillaTheme(themeConfig = themeConfig) {
         CompositionLocalProvider(
             LocalThemeConfig provides themeConfig,
-            LocalThemeController provides { themeMode = it },
+            LocalThemeController provides { themeViewModel.setThemeMode(it) },
         ) {
             val navController = rememberNavController()
             val backStackEntry by navController.currentBackStackEntryAsState()
