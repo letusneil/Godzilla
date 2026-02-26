@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Godzilla"
 include(":app")
+include(":shared")
