@@ -7,10 +7,7 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
-/** Returns a platform-specific [HttpClient]. Provided by each platform via expect/actual. */
-expect fun createHttpClient(): HttpClient
-
-internal fun HttpClient.Factory.configure(): HttpClient = create {
+fun createHttpClient(): HttpClient = HttpClient {
     install(ContentNegotiation) {
         json(
             Json {
