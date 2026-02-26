@@ -8,7 +8,7 @@ interface ExerciseRepository {
 }
 
 class ExerciseRepositoryImpl(
-    private val apiClient: WgerApiClient = WgerApiClient(),
+    private val apiClient: WgerApiClient,
 ) : ExerciseRepository {
 
     override suspend fun getExercises(page: Int): List<ExerciseInfo> =

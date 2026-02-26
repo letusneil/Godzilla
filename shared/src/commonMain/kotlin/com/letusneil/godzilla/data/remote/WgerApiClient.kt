@@ -6,7 +6,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 
-class WgerApiClient(private val httpClient: HttpClient = createHttpClient()) {
+class WgerApiClient(private val httpClient: HttpClient) {
 
     suspend fun fetchExercises(
         language: Int = LANGUAGE_ENGLISH,

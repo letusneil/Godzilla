@@ -3,14 +3,13 @@ package com.letusneil.godzilla.exercises
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.letusneil.godzilla.data.repository.ExerciseRepository
-import com.letusneil.godzilla.data.repository.ExerciseRepositoryImpl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class ExercisesViewModel(
-    private val repository: ExerciseRepository = ExerciseRepositoryImpl(),
+    private val repository: ExerciseRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ExercisesUiState>(ExercisesUiState.Loading)
