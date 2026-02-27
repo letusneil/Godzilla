@@ -13,7 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -72,7 +74,10 @@ fun GodzillaApp(themeViewModel: ThemeViewModel = koinViewModel()) {
                     }
                 },
             ) {
-                GodzillaNavHost(navController = navController)
+                GodzillaNavHost(
+                    navController = navController,
+                    modifier = Modifier.statusBarsPadding(),
+                )
             }
         }
     }
