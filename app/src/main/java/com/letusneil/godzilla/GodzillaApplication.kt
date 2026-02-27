@@ -1,6 +1,7 @@
 package com.letusneil.godzilla
 
 import android.app.Application
+import com.letusneil.godzilla.di.databaseModule
 import com.letusneil.godzilla.di.sharedModules
 import com.letusneil.godzilla.di.themeModule
 import com.letusneil.godzilla.di.viewModelModule
@@ -15,7 +16,7 @@ class GodzillaApplication : Application() {
         Napier.base(DebugAntilog())
         startKoin {
             androidContext(this@GodzillaApplication)
-            modules(sharedModules + viewModelModule + themeModule)
+            modules(sharedModules + viewModelModule + themeModule + databaseModule)
         }
     }
 }

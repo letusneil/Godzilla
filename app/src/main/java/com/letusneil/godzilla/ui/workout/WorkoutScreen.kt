@@ -30,6 +30,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
@@ -57,13 +60,18 @@ fun WorkoutScreen(
 ) {
     val query by viewModel.query.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showRoutineSheet by remember { mutableStateOf(false) }
+
+    if (showRoutineSheet) {
+        RoutineBottomSheet(onDismiss = { showRoutineSheet = false })
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Workout") },
                 actions = {
-                    TextButton(onClick = {}) {
+                    TextButton(onClick = { showRoutineSheet = true }) {
                         Icon(
                             imageVector = Icons.Default.AttachFile,
                             contentDescription = null,
