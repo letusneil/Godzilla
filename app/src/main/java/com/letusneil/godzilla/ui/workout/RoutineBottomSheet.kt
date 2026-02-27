@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -23,6 +24,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -50,6 +52,12 @@ import com.letusneil.godzilla.search.SearchUiState
 import com.letusneil.godzilla.search.SearchViewModel
 import org.koin.androidx.compose.koinViewModel
 
+private sealed interface RoutineSheetScreen {
+    data object List : RoutineSheetScreen
+    data object Create : RoutineSheetScreen
+    data class Detail(val routineId: Long) : RoutineSheetScreen
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutineBottomSheet(
@@ -61,40 +69,50 @@ fun RoutineBottomSheet(
     val uiState by routinesViewModel.uiState.collectAsStateWithLifecycle()
     val searchState by searchViewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by searchViewModel.query.collectAsStateWithLifecycle()
-    var showCreateForm by remember { mutableStateOf(false) }
+    var screen by remember { mutableStateOf<RoutineSheetScreen>(RoutineSheetScreen.List) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
-        if (showCreateForm) {
-            CreateRoutineForm(
+        when (val current = screen) {
+            is RoutineSheetScreen.List -> RoutineListContent(
+                uiState = uiState,
+                onNewRoutine = { screen = RoutineSheetScreen.Create },
+                onRoutineClick = { routine -> screen = RoutineSheetScreen.Detail(routine.id) },
+            )
+
+            is RoutineSheetScreen.Create -> CreateRoutineForm(
                 searchQuery = searchQuery,
                 searchState = searchState,
                 onQueryChange = searchViewModel::onQueryChange,
                 onSave = { name, description, exercises ->
                     routinesViewModel.createRoutineWithExercises(name, description, exercises)
                     searchViewModel.onQueryChange("")
-                    showCreateForm = false
+                    screen = RoutineSheetScreen.List
                 },
                 onCancel = {
                     searchViewModel.onQueryChange("")
-                    showCreateForm = false
+                    screen = RoutineSheetScreen.List
                 },
             )
-        } else {
-            RoutineListContent(
-                uiState = uiState,
-                onNewRoutine = { showCreateForm = true },
+
+            is RoutineSheetScreen.Detail -> RoutineDetailContent(
+                routineId = current.routineId,
+                routinesViewModel = routinesViewModel,
+                onBack = { screen = RoutineSheetScreen.List },
             )
         }
     }
 }
 
+// ── List ─────────────────────────────────────────────────────────────────────
+
 @Composable
 private fun RoutineListContent(
     uiState: RoutinesUiState,
     onNewRoutine: () -> Unit,
+    onRoutineClick: (RoutineEntity) -> Unit,
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Row(
@@ -126,7 +144,7 @@ private fun RoutineListContent(
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(uiState.routines, key = { it.id }) { routine ->
-                            RoutineCard(routine)
+                            RoutineCard(routine = routine, onClick = { onRoutineClick(routine) })
                         }
                     }
                 }
@@ -138,8 +156,8 @@ private fun RoutineListContent(
 }
 
 @Composable
-private fun RoutineCard(routine: RoutineEntity) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun RoutineCard(routine: RoutineEntity, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = routine.name, style = MaterialTheme.typography.titleSmall)
             if (routine.description.isNotBlank()) {
@@ -153,6 +171,102 @@ private fun RoutineCard(routine: RoutineEntity) {
         }
     }
 }
+
+// ── Detail ────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun RoutineDetailContent(
+    routineId: Long,
+    routinesViewModel: RoutinesViewModel,
+    onBack: () -> Unit,
+) {
+    val routineWithExercises by routinesViewModel
+        .getRoutineWithExercises(routineId)
+        .collectAsStateWithLifecycle(initialValue = null)
+
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .padding(horizontal = 16.dp),
+    ) {
+        // Back navigation header
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                )
+            }
+            Text(
+                text = routineWithExercises?.routine?.name ?: "",
+                style = MaterialTheme.typography.titleLarge,
+            )
+        }
+
+        val detail = routineWithExercises
+        if (detail == null) {
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            if (detail.routine.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = detail.routine.description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Exercises (${detail.exercises.size})",
+                style = MaterialTheme.typography.titleSmall,
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            if (detail.exercises.isEmpty()) {
+                Text(
+                    text = "No exercises added yet.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(detail.exercises, key = { it.exerciseId }) { exercise ->
+                        ExerciseItem(exercise)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ExerciseItem(exercise: ExerciseEntity) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Text(text = exercise.name, style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = exercise.category,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// ── Create ────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,7 +286,6 @@ private fun CreateRoutineForm(
             .fillMaxHeight()
             .padding(horizontal = 16.dp),
     ) {
-        // Header row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -208,7 +321,6 @@ private fun CreateRoutineForm(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Selected exercises as dismissible chips
         if (selectedExercises.isNotEmpty()) {
             Text("Added", style = MaterialTheme.typography.labelMedium)
             Spacer(modifier = Modifier.height(4.dp))
@@ -233,7 +345,6 @@ private fun CreateRoutineForm(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // Exercise search field
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onQueryChange,
@@ -252,7 +363,6 @@ private fun CreateRoutineForm(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Search results — fills all remaining vertical space
         Box(modifier = Modifier.weight(1f)) {
             when (val state = searchState) {
                 is SearchUiState.Idle -> Text(

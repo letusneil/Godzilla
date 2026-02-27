@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.letusneil.godzilla.data.local.entity.ExerciseEntity
 import com.letusneil.godzilla.data.local.entity.RoutineEntity
+import com.letusneil.godzilla.data.local.entity.RoutineWithExercises
 import com.letusneil.godzilla.data.repository.RoutineRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -53,4 +55,7 @@ class RoutinesViewModel(private val repository: RoutineRepository) : ViewModel()
             repository.removeExerciseFromRoutine(routineId, exerciseId)
         }
     }
+
+    fun getRoutineWithExercises(routineId: Long): Flow<RoutineWithExercises?> =
+        repository.getRoutineWithExercises(routineId)
 }
