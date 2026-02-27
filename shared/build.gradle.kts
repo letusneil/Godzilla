@@ -36,7 +36,7 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.napier)
             implementation(libs.room.runtime)
-            implementation(libs.sqlite.bundled)
+            implementation(libs.sqlite.android)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.android)

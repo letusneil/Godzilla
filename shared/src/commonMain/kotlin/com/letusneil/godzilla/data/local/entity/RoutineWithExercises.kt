@@ -9,7 +9,11 @@ data class RoutineWithExercises(
     @Relation(
         parentColumn = "id",
         entityColumn = "exerciseId",
-        associateBy = Junction(RoutineExerciseCrossRef::class),
+        associateBy = Junction(
+            value = RoutineExerciseCrossRef::class,
+            parentColumn = "routineId",
+            entityColumn = "exerciseId",
+        ),
     )
     val exercises: List<ExerciseEntity>,
 )
