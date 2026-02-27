@@ -143,3 +143,8 @@ data class Note(
     val translation: Int,
     val comment: String
 )
+
+data class ExercisePage(
+    val exercises: List<Exercise>,
+    val hasMore: Boolean,
+)
