@@ -27,6 +27,15 @@ class RoutinesViewModel(private val repository: RoutineRepository) : ViewModel()
         }
     }
 
+    fun createRoutineWithExercises(name: String, description: String, exercises: List<ExerciseEntity>) {
+        viewModelScope.launch {
+            val routineId = repository.createRoutine(name, description)
+            exercises.forEach { exercise ->
+                repository.addExerciseToRoutine(routineId, exercise)
+            }
+        }
+    }
+
     fun deleteRoutine(routine: RoutineEntity) {
         viewModelScope.launch {
             repository.deleteRoutine(routine)
