@@ -46,6 +46,10 @@ kotlin {
     }
 }
 
+dependencies {
+    add("kspAndroid", libs.room.compiler)
+}
+
 room {
     schemaDirectory("$projectDir/schemas")
 }
