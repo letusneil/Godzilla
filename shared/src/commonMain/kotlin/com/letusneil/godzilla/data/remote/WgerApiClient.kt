@@ -1,6 +1,6 @@
 package com.letusneil.godzilla.data.remote
 
-import com.letusneil.godzilla.data.model.ExerciseListResponse
+import com.letusneil.godzilla.data.model.ExerciseResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -12,7 +12,7 @@ class WgerApiClient(private val httpClient: HttpClient) {
         language: Int = LANGUAGE_ENGLISH,
         limit: Int = PAGE_SIZE,
         offset: Int = 0,
-    ): ExerciseListResponse = httpClient
+    ): ExerciseResponse = httpClient
         .get("$BASE_URL/api/v2/exerciseinfo/") {
             parameter("format", "json")
             parameter("language", language)

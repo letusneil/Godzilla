@@ -28,6 +28,7 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.koin.core)
+            implementation(libs.napier)
         }
         androidMain.dependencies {
             implementation(libs.ktor.client.android)
