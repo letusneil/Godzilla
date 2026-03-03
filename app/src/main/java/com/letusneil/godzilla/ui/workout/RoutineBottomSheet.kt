@@ -65,6 +65,7 @@ private sealed interface RoutineSheetScreen {
     data object List : RoutineSheetScreen
     data object Create : RoutineSheetScreen
     data class Detail(val routineId: Long) : RoutineSheetScreen
+    data class AddExercise(val routineId: Long) : RoutineSheetScreen
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,7 +84,8 @@ fun RoutineBottomSheet(
     LaunchedEffect(screen) {
         when (screen) {
             is RoutineSheetScreen.Create,
-            is RoutineSheetScreen.Detail -> sheetState.expand()
+            is RoutineSheetScreen.Detail,
+            is RoutineSheetScreen.AddExercise -> sheetState.expand()
             is RoutineSheetScreen.List -> if (sheetState.isVisible) sheetState.partialExpand()
         }
     }
@@ -100,8 +102,13 @@ fun RoutineBottomSheet(
                     targetState is RoutineSheetScreen.Create ->
                         (slideInVertically { it } + fadeIn()) togetherWith fadeOut()
 
-                    // Routine tapped → Detail: forward slide (left)
-                    targetState is RoutineSheetScreen.Detail ->
+                    // Detail → AddExercise: forward slide (left)
+                    targetState is RoutineSheetScreen.AddExercise ->
+                        (slideInHorizontally { it } + fadeIn()) togetherWith
+                            (slideOutHorizontally { -it } + fadeOut())
+
+                    // List → Detail: forward slide (left)
+                    targetState is RoutineSheetScreen.Detail && initialState is RoutineSheetScreen.List ->
                         (slideInHorizontally { it } + fadeIn()) togetherWith
                             (slideOutHorizontally { -it } + fadeOut())
 
@@ -143,6 +150,19 @@ fun RoutineBottomSheet(
                     routineId = current.routineId,
                     routinesViewModel = routinesViewModel,
                     onBack = { screen = RoutineSheetScreen.List },
+                    onAddExercise = { screen = RoutineSheetScreen.AddExercise(current.routineId) },
+                )
+
+                is RoutineSheetScreen.AddExercise -> AddExerciseContent(
+                    routineId = current.routineId,
+                    routinesViewModel = routinesViewModel,
+                    searchQuery = searchQuery,
+                    searchState = searchState,
+                    onQueryChange = searchViewModel::onQueryChange,
+                    onBack = {
+                        searchViewModel.onQueryChange("")
+                        screen = RoutineSheetScreen.Detail(current.routineId)
+                    },
                 )
             }
         }
@@ -222,6 +242,7 @@ private fun RoutineDetailContent(
     routineId: Long,
     routinesViewModel: RoutinesViewModel,
     onBack: () -> Unit,
+    onAddExercise: () -> Unit,
 ) {
     val routineWithExercises by routinesViewModel
         .getRoutineWithExercises(routineId)
@@ -266,10 +287,22 @@ private fun RoutineDetailContent(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Text(
-                text = "Exercises (${detail.exercises.size})",
-                style = MaterialTheme.typography.titleSmall,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Exercises (${detail.exercises.size})",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                IconButton(onClick = onAddExercise) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add exercises",
+                    )
+                }
+            }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -306,6 +339,110 @@ private fun ExerciseItem(exercise: ExerciseEntity) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+// ── Add Exercise ──────────────────────────────────────────────────────────────
+
+@Composable
+private fun AddExerciseContent(
+    routineId: Long,
+    routinesViewModel: RoutinesViewModel,
+    searchQuery: String,
+    searchState: SearchUiState,
+    onQueryChange: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val routineWithExercises by routinesViewModel
+        .getRoutineWithExercises(routineId)
+        .collectAsStateWithLifecycle(initialValue = null)
+    val currentExerciseIds = routineWithExercises?.exercises?.map { it.exerciseId }.orEmpty()
+
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .padding(horizontal = 16.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                )
+            }
+            Text("Add Exercises", style = MaterialTheme.typography.titleLarge)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Search exercises…") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear")
+                    }
+                }
+            },
+            singleLine = true,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Box(modifier = Modifier.weight(1f)) {
+            when (val state = searchState) {
+                is SearchUiState.Idle -> Text(
+                    text = "Search above to add exercises",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                is SearchUiState.Loading -> CircularProgressIndicator()
+                is SearchUiState.Empty -> Text(
+                    text = "No exercises found for \"$searchQuery\"",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                is SearchUiState.Error -> Text(
+                    text = state.message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                is SearchUiState.Success -> LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(state.results, key = { it.data.id }) { suggestion ->
+                        val isAdded = suggestion.data.baseId in currentExerciseIds
+                        ExerciseResultItem(
+                            suggestion = suggestion,
+                            isSelected = isAdded,
+                            onToggle = {
+                                if (isAdded) {
+                                    routinesViewModel.removeExercise(routineId, suggestion.data.baseId)
+                                } else {
+                                    routinesViewModel.addExercise(
+                                        routineId,
+                                        ExerciseEntity(
+                                            exerciseId = suggestion.data.baseId,
+                                            name = suggestion.data.name,
+                                            category = suggestion.data.category,
+                                        ),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
