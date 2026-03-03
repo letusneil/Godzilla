@@ -1,48 +1,36 @@
 package com.letusneil.godzilla.ui.workout
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
-import com.letusneil.godzilla.data.model.ExerciseSuggestion
-import com.letusneil.godzilla.search.SearchUiState
-import com.letusneil.godzilla.search.SearchViewModel
+import com.letusneil.godzilla.data.local.entity.RoutineEntity
+import com.letusneil.godzilla.routines.RoutinesUiState
+import com.letusneil.godzilla.routines.RoutinesViewModel
 import org.koin.androidx.compose.koinViewModel
 
 const val WORKOUT_ROUTE = "workout"
@@ -56,105 +44,58 @@ fun NavGraphBuilder.workoutRoute() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutScreen(
-    viewModel: SearchViewModel = koinViewModel(),
+    viewModel: RoutinesViewModel = koinViewModel(),
 ) {
-    val query by viewModel.query.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showRoutineSheet by remember { mutableStateOf(false) }
+    var sheetEntry by remember { mutableStateOf<RoutineSheetEntry?>(null) }
 
-    if (showRoutineSheet) {
-        RoutineBottomSheet(onDismiss = { showRoutineSheet = false })
+    sheetEntry?.let { entry ->
+        RoutineBottomSheet(
+            entry = entry,
+            onDismiss = { sheetEntry = null },
+        )
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Workout") },
-                actions = {
-                    TextButton(onClick = { showRoutineSheet = true }) {
-                        Icon(
-                            imageVector = Icons.Default.AttachFile,
-                            contentDescription = null,
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Routine")
-                    }
-                },
-            )
-        },
+        topBar = { TopAppBar(title = { Text("Workout") }) },
         contentWindowInsets = WindowInsets(0),
     ) { paddingValues ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(paddingValues),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::onQueryChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search exercises…") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.onQueryChange("") }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear")
-                        }
-                    }
-                },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                singleLine = true,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            item {
+                Button(
+                    onClick = { sheetEntry = RoutineSheetEntry.Create },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Create a new Routine")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
             when (val state = uiState) {
-                is SearchUiState.Idle -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "Search for an exercise above",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                is RoutinesUiState.Loading -> Unit
 
-                is SearchUiState.Loading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator()
-                }
-
-                is SearchUiState.Empty -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "No exercises found for \"$query\"",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                is SearchUiState.Error -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-
-                is SearchUiState.Success -> LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.results, key = { it.data.id }) { suggestion ->
-                        SearchResultItem(suggestion)
+                is RoutinesUiState.Success -> {
+                    if (state.routines.isEmpty()) {
+                        item {
+                            Text(
+                                text = "No routines yet. Tap the button above to create one.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        items(state.routines, key = { it.id }) { routine ->
+                            RoutineItem(
+                                routine = routine,
+                                onClick = { sheetEntry = RoutineSheetEntry.Detail(routine.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -163,19 +104,18 @@ fun WorkoutScreen(
 }
 
 @Composable
-private fun SearchResultItem(suggestion: ExerciseSuggestion) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+private fun RoutineItem(routine: RoutineEntity, onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = suggestion.data.name,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = suggestion.data.category,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Text(text = routine.name, style = MaterialTheme.typography.titleSmall)
+            if (routine.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = routine.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

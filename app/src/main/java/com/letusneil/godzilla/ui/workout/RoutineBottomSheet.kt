@@ -4,9 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,7 +29,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,7 +40,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,16 +49,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.letusneil.godzilla.data.local.entity.ExerciseEntity
-import com.letusneil.godzilla.data.local.entity.RoutineEntity
 import com.letusneil.godzilla.data.model.ExerciseSuggestion
-import com.letusneil.godzilla.routines.RoutinesUiState
 import com.letusneil.godzilla.routines.RoutinesViewModel
 import com.letusneil.godzilla.search.SearchUiState
 import com.letusneil.godzilla.search.SearchViewModel
 import org.koin.androidx.compose.koinViewModel
 
+sealed interface RoutineSheetEntry {
+    data object Create : RoutineSheetEntry
+    data class Detail(val routineId: Long) : RoutineSheetEntry
+}
+
 private sealed interface RoutineSheetScreen {
-    data object List : RoutineSheetScreen
     data object Create : RoutineSheetScreen
     data class Detail(val routineId: Long) : RoutineSheetScreen
     data class AddExercise(val routineId: Long) : RoutineSheetScreen
@@ -71,23 +69,21 @@ private sealed interface RoutineSheetScreen {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoutineBottomSheet(
+    entry: RoutineSheetEntry,
     onDismiss: () -> Unit,
     routinesViewModel: RoutinesViewModel = koinViewModel(),
     searchViewModel: SearchViewModel = koinViewModel(key = "routineSearch"),
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-    val uiState by routinesViewModel.uiState.collectAsStateWithLifecycle()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val searchState by searchViewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by searchViewModel.query.collectAsStateWithLifecycle()
-    var screen by remember { mutableStateOf<RoutineSheetScreen>(RoutineSheetScreen.List) }
-
-    LaunchedEffect(screen) {
-        when (screen) {
-            is RoutineSheetScreen.Create,
-            is RoutineSheetScreen.Detail,
-            is RoutineSheetScreen.AddExercise -> sheetState.expand()
-            is RoutineSheetScreen.List -> if (sheetState.isVisible) sheetState.partialExpand()
-        }
+    var screen by remember {
+        mutableStateOf<RoutineSheetScreen>(
+            when (entry) {
+                is RoutineSheetEntry.Create -> RoutineSheetScreen.Create
+                is RoutineSheetEntry.Detail -> RoutineSheetScreen.Detail(entry.routineId)
+            }
+        )
     }
 
     ModalBottomSheet(
@@ -97,40 +93,19 @@ fun RoutineBottomSheet(
         AnimatedContent(
             targetState = screen,
             transitionSpec = {
-                when {
-                    // + tapped → Create: new content slides up from below
-                    targetState is RoutineSheetScreen.Create ->
-                        (slideInVertically { it } + fadeIn()) togetherWith fadeOut()
-
-                    // Detail → AddExercise: forward slide (left)
-                    targetState is RoutineSheetScreen.AddExercise ->
-                        (slideInHorizontally { it } + fadeIn()) togetherWith
-                            (slideOutHorizontally { -it } + fadeOut())
-
-                    // List → Detail: forward slide (left)
-                    targetState is RoutineSheetScreen.Detail && initialState is RoutineSheetScreen.List ->
-                        (slideInHorizontally { it } + fadeIn()) togetherWith
-                            (slideOutHorizontally { -it } + fadeOut())
-
-                    // Cancel/Save from Create → List: form slides back down
-                    initialState is RoutineSheetScreen.Create ->
-                        fadeIn() togetherWith (slideOutVertically { it } + fadeOut())
-
-                    // Back from Detail → List: reverse slide (right)
-                    else ->
-                        (slideInHorizontally { -it } + fadeIn()) togetherWith
-                            (slideOutHorizontally { it } + fadeOut())
+                if (targetState is RoutineSheetScreen.AddExercise) {
+                    // Detail → AddExercise: forward slide left
+                    (slideInHorizontally { it } + fadeIn()) togetherWith
+                        (slideOutHorizontally { -it } + fadeOut())
+                } else {
+                    // AddExercise → Detail: back slide right
+                    (slideInHorizontally { -it } + fadeIn()) togetherWith
+                        (slideOutHorizontally { it } + fadeOut())
                 }
             },
             label = "routineSheet",
         ) { current ->
             when (current) {
-                is RoutineSheetScreen.List -> RoutineListContent(
-                    uiState = uiState,
-                    onNewRoutine = { screen = RoutineSheetScreen.Create },
-                    onRoutineClick = { routine -> screen = RoutineSheetScreen.Detail(routine.id) },
-                )
-
                 is RoutineSheetScreen.Create -> CreateRoutineForm(
                     searchQuery = searchQuery,
                     searchState = searchState,
@@ -138,18 +113,18 @@ fun RoutineBottomSheet(
                     onSave = { name, description, exercises ->
                         routinesViewModel.createRoutineWithExercises(name, description, exercises)
                         searchViewModel.onQueryChange("")
-                        screen = RoutineSheetScreen.List
+                        onDismiss()
                     },
                     onCancel = {
                         searchViewModel.onQueryChange("")
-                        screen = RoutineSheetScreen.List
+                        onDismiss()
                     },
                 )
 
                 is RoutineSheetScreen.Detail -> RoutineDetailContent(
                     routineId = current.routineId,
                     routinesViewModel = routinesViewModel,
-                    onBack = { screen = RoutineSheetScreen.List },
+                    onBack = onDismiss,
                     onAddExercise = { screen = RoutineSheetScreen.AddExercise(current.routineId) },
                 )
 
@@ -163,72 +138,6 @@ fun RoutineBottomSheet(
                         searchViewModel.onQueryChange("")
                         screen = RoutineSheetScreen.Detail(current.routineId)
                     },
-                )
-            }
-        }
-    }
-}
-
-// ── List ─────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun RoutineListContent(
-    uiState: RoutinesUiState,
-    onNewRoutine: () -> Unit,
-    onRoutineClick: (RoutineEntity) -> Unit,
-) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Routines", style = MaterialTheme.typography.titleLarge)
-            FloatingActionButton(onClick = onNewRoutine) {
-                Icon(Icons.Default.Add, contentDescription = "New Routine")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        when (uiState) {
-            is RoutinesUiState.Loading -> Text(
-                text = "Loading…",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            is RoutinesUiState.Success -> {
-                if (uiState.routines.isEmpty()) {
-                    Text(
-                        text = "No routines yet. Tap + to create one.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(uiState.routines, key = { it.id }) { routine ->
-                            RoutineCard(routine = routine, onClick = { onRoutineClick(routine) })
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-    }
-}
-
-@Composable
-private fun RoutineCard(routine: RoutineEntity, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = routine.name, style = MaterialTheme.typography.titleSmall)
-            if (routine.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = routine.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
