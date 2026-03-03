@@ -1,5 +1,13 @@
 package com.letusneil.godzilla.ui.workout
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,43 +74,77 @@ fun RoutineBottomSheet(
     routinesViewModel: RoutinesViewModel = koinViewModel(),
     searchViewModel: SearchViewModel = koinViewModel(key = "routineSearch"),
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     val uiState by routinesViewModel.uiState.collectAsStateWithLifecycle()
     val searchState by searchViewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by searchViewModel.query.collectAsStateWithLifecycle()
     var screen by remember { mutableStateOf<RoutineSheetScreen>(RoutineSheetScreen.List) }
 
+    LaunchedEffect(screen) {
+        when (screen) {
+            is RoutineSheetScreen.Create,
+            is RoutineSheetScreen.Detail -> sheetState.expand()
+            is RoutineSheetScreen.List -> if (sheetState.isVisible) sheetState.partialExpand()
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
     ) {
-        when (val current = screen) {
-            is RoutineSheetScreen.List -> RoutineListContent(
-                uiState = uiState,
-                onNewRoutine = { screen = RoutineSheetScreen.Create },
-                onRoutineClick = { routine -> screen = RoutineSheetScreen.Detail(routine.id) },
-            )
+        AnimatedContent(
+            targetState = screen,
+            transitionSpec = {
+                when {
+                    // + tapped → Create: new content slides up from below
+                    targetState is RoutineSheetScreen.Create ->
+                        (slideInVertically { it } + fadeIn()) togetherWith fadeOut()
 
-            is RoutineSheetScreen.Create -> CreateRoutineForm(
-                searchQuery = searchQuery,
-                searchState = searchState,
-                onQueryChange = searchViewModel::onQueryChange,
-                onSave = { name, description, exercises ->
-                    routinesViewModel.createRoutineWithExercises(name, description, exercises)
-                    searchViewModel.onQueryChange("")
-                    screen = RoutineSheetScreen.List
-                },
-                onCancel = {
-                    searchViewModel.onQueryChange("")
-                    screen = RoutineSheetScreen.List
-                },
-            )
+                    // Routine tapped → Detail: forward slide (left)
+                    targetState is RoutineSheetScreen.Detail ->
+                        (slideInHorizontally { it } + fadeIn()) togetherWith
+                            (slideOutHorizontally { -it } + fadeOut())
 
-            is RoutineSheetScreen.Detail -> RoutineDetailContent(
-                routineId = current.routineId,
-                routinesViewModel = routinesViewModel,
-                onBack = { screen = RoutineSheetScreen.List },
-            )
+                    // Cancel/Save from Create → List: form slides back down
+                    initialState is RoutineSheetScreen.Create ->
+                        fadeIn() togetherWith (slideOutVertically { it } + fadeOut())
+
+                    // Back from Detail → List: reverse slide (right)
+                    else ->
+                        (slideInHorizontally { -it } + fadeIn()) togetherWith
+                            (slideOutHorizontally { it } + fadeOut())
+                }
+            },
+            label = "routineSheet",
+        ) { current ->
+            when (current) {
+                is RoutineSheetScreen.List -> RoutineListContent(
+                    uiState = uiState,
+                    onNewRoutine = { screen = RoutineSheetScreen.Create },
+                    onRoutineClick = { routine -> screen = RoutineSheetScreen.Detail(routine.id) },
+                )
+
+                is RoutineSheetScreen.Create -> CreateRoutineForm(
+                    searchQuery = searchQuery,
+                    searchState = searchState,
+                    onQueryChange = searchViewModel::onQueryChange,
+                    onSave = { name, description, exercises ->
+                        routinesViewModel.createRoutineWithExercises(name, description, exercises)
+                        searchViewModel.onQueryChange("")
+                        screen = RoutineSheetScreen.List
+                    },
+                    onCancel = {
+                        searchViewModel.onQueryChange("")
+                        screen = RoutineSheetScreen.List
+                    },
+                )
+
+                is RoutineSheetScreen.Detail -> RoutineDetailContent(
+                    routineId = current.routineId,
+                    routinesViewModel = routinesViewModel,
+                    onBack = { screen = RoutineSheetScreen.List },
+                )
+            }
         }
     }
 }
