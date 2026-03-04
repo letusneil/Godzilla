@@ -2,6 +2,9 @@ package com.letusneil.godzilla.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+// ── App accent ───────────────────────────────────────────────────────────────
+val AccentBlue = Color(0xFF4285F4)
+
 // ── Dark palette (black-dominant) ────────────────────────────────────────────
 val Dark_Background = Color(0xFF000000)
 val Dark_Surface = Color(0xFF111111)
